@@ -248,4 +248,4 @@ DLQ envelope includes:
 - HTAP-ish split: Postgres for ledger correctness, ClickHouse for real-time analytics
 - Tenant-aware evolution (`workspace_id`) without breaking v1 producers/consumers
 
-Made with ❤️ by the WeAreTheArtMakers
+Made with ❤️ WeAreTheArtMakers
