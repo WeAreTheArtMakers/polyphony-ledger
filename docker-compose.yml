@@ -54,7 +54,7 @@ services:
         rpk topic create dlq_clickhouse --brokers redpanda:9092 -p 3 -r 1 || true
 
   redpanda-console:
-    image: docker.redpanda.com/redpandadata/console:v2.8.7
+    image: redpandadata/console:v2.8.7
     depends_on:
       redpanda:
         condition: service_healthy
