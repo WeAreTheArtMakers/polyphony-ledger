@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: Polyphony Dashboards
+    folder: Polyphony
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

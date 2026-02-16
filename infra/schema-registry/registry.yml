@@ -1,0 +1,5 @@
+# Optional Confluent Schema Registry fallback config.
+# This demo uses Redpanda built-in schema registry at http://redpanda:8081.
+listeners: http://0.0.0.0:8081
+kafkastore.bootstrap.servers: PLAINTEXT://redpanda:9092
+schema.compatibility.level: BACKWARD

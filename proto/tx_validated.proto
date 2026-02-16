@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package polyphony.events;
+
+import "google/protobuf/timestamp.proto";
+
+message TxValidated {
+  string tx_id = 1;
+  string event_id = 2;
+  string correlation_id = 3;
+  string payer_account = 4;
+  string payee_account = 5;
+  string asset = 6;
+  string amount = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  string validation_version = 9;
+  string workspace_id = 10;
+  optional string payment_memo = 11;
+  optional string client_id = 12;
+}

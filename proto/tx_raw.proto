@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package polyphony.events;
+
+import "google/protobuf/timestamp.proto";
+
+// v2 schema. Backward-compatible with v1 where fields 8+ are absent.
+message TxRaw {
+  string payer_account = 1;
+  string payee_account = 2;
+  string asset = 3;
+  string amount = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+  string event_id = 6;
+  string correlation_id = 7;
+  optional string payment_memo = 8;
+  optional string workspace_id = 9;
+  optional string client_id = 10;
+}

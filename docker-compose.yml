@@ -1,0 +1,278 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.3.7
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --check=false
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092,OUTSIDE://localhost:19092
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=redpanda:8082
+      - --schema-registry-addr=0.0.0.0:8081
+      - --rpc-addr=0.0.0.0:33145
+      - --advertise-rpc-addr=redpanda:33145
+    ports:
+      - '9092:9092'
+      - '19092:19092'
+      - '8081:8081'
+      - '9644:9644'
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ['CMD-SHELL', 'rpk cluster info --brokers localhost:9092 >/dev/null 2>&1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redpanda-init:
+    image: redpandadata/redpanda:v24.3.7
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        for i in {1..20}; do
+          rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1 && break
+          sleep 2
+        done
+        rpk topic create tx_raw --brokers redpanda:9092 -p 6 -r 1 || true
+        rpk topic create tx_validated --brokers redpanda:9092 -p 6 -r 1 || true
+        rpk topic create ledger_entry_batches --brokers redpanda:9092 -p 12 -r 1 || true
+        rpk topic create balance_snapshots --brokers redpanda:9092 -p 6 -r 1 || true
+        rpk topic create dlq_tx_raw --brokers redpanda:9092 -p 3 -r 1 || true
+        rpk topic create dlq_tx_validated --brokers redpanda:9092 -p 3 -r 1 || true
+        rpk topic create dlq_ledger_batches --brokers redpanda:9092 -p 3 -r 1 || true
+        rpk topic create dlq_clickhouse --brokers redpanda:9092 -p 3 -r 1 || true
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.8.7
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: 'true'
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+    ports:
+      - '8080:8080'
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: polyphony
+      POSTGRES_PASSWORD: polyphony
+      POSTGRES_DB: polyphony
+    ports:
+      - '5432:5432'
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./backend/app/db/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U polyphony -d polyphony']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+    volumes:
+      - ch-data:/var/lib/clickhouse
+      - ./backend/app/clickhouse/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'clickhouse-client --query "SELECT 1"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.63.0
+    ports:
+      - '16686:16686'
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.121.0
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    volumes:
+      - ./infra/otel/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+    depends_on:
+      - jaeger
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_started
+      clickhouse:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    environment:
+      APP_NAME: polyphony-ledger-backend
+      ENVIRONMENT: dev
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: http://localhost:3000
+      POSTGRES_DSN: postgresql://polyphony:polyphony@postgres:5432/polyphony
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      KAFKA_CLIENT_ID: polyphony-ledger
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: ''
+      CLICKHOUSE_DATABASE: polyphony
+      OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
+      TRAFFIC_GENERATOR_ENABLED: 'false'
+      ALLOWED_ASSETS: BTC,ETH,USDT
+    ports:
+      - '8000:8000'
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  validator-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      POSTGRES_DSN: postgresql://polyphony:polyphony@postgres:5432/polyphony
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: polyphony
+      ALLOWED_ASSETS: BTC,ETH,USDT
+    command: ["python", "-m", "app.kafka.consumer_validator"]
+
+  ledger-writer-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      POSTGRES_DSN: postgresql://polyphony:polyphony@postgres:5432/polyphony
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: polyphony
+      ALLOWED_ASSETS: BTC,ETH,USDT
+    command: ["python", "-m", "app.kafka.consumer_ledger_writer"]
+
+  outbox-publisher:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      POSTGRES_DSN: postgresql://polyphony:polyphony@postgres:5432/polyphony
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: polyphony
+      ALLOWED_ASSETS: BTC,ETH,USDT
+    command: ["python", "-m", "app.kafka.outbox_publisher"]
+
+  balance-projector-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      POSTGRES_DSN: postgresql://polyphony:polyphony@postgres:5432/polyphony
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: polyphony
+      ALLOWED_ASSETS: BTC,ETH,USDT
+    command: ["python", "-m", "app.kafka.consumer_balance_projector"]
+
+  clickhouse-writer-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      POSTGRES_DSN: postgresql://polyphony:polyphony@postgres:5432/polyphony
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: polyphony
+      ALLOWED_ASSETS: BTC,ETH,USDT
+    command: ["python", "-m", "app.clickhouse.writer_consumer"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws/stream
+      NEXT_PUBLIC_JAEGER_URL: http://localhost:16686
+    ports:
+      - '3000:3000'
+
+  prometheus:
+    image: prom/prometheus:v3.3.1
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - '9090:9090'
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./infra/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - '3001:3000'
+    depends_on:
+      - prometheus
+
+volumes:
+  redpanda-data:
+  pg-data:
+  ch-data:

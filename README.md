@@ -1,0 +1,249 @@
+# polyphony-ledger
+
+Ultra-modern real-time crypto payments ledger demo with Redpanda, Schema Registry + Protobuf evolution, immutable Postgres double-entry ledger, replayable projections, ClickHouse OLAP, OpenTelemetry tracing, Prometheus/Grafana metrics, and a Next.js realtime UI.
+
+## Architecture
+
+```text
+                              +------------------------------+
+                              |          Frontend            |
+                              |  Next.js + WS + Recharts     |
+                              +---------------+--------------+
+                                              |
+                                              | REST + WS
+                                              v
++-------------------------+      +------------+-------------+       +---------------------+
+|  Seed Traffic Generator |----->| FastAPI Ingest API       |------>| tx_raw (Redpanda)   |
+|  (/tx/generator/*)      |      | /tx/ingest + OTel spans  |       +----------+----------+
++-------------------------+      +--------------------------+                  |
+                                                                                 v
+                                                                       +---------+---------+
+                                                                       | validator-cg      |
+                                                                       | tx_raw -> tx_valid|
+                                                                       +---------+---------+
+                                                                                 |
+                                                                                 v
+                                                                       +---------+---------+
+                                                                       | ledger-writer-cg  |
+                                                                       | immutable ledger + |
+                                                                       | outbox insert      |
+                                                                       +---------+---------+
+                                                                                 |
+                                                                                 v
+                                                                       +---------+---------+
+                                                                       | outbox publisher   |
+                                                                       | ledger_entry_batch |
+                                                                       +---------+---------+
+                                                                                 |
+                               +----------------------+--------------------------+----------------------+
+                               |                      |                                                 |
+                               v                      v                                                 v
+                     +---------+---------+   +--------+---------+                           +-----------+----------+
+                     | balance-projector |   | clickhouse-writer|                           | DLQ topics per stage |
+                     | account_balances  |   | CH raw + MVs      |                           | + PII redaction      |
+                     +---------+---------+   +--------+---------+                           +----------------------+
+                               |                      |
+                               v                      v
+                     +---------+---------+   +--------+---------+
+                     | Postgres projection|  | ClickHouse OLAP  |
+                     | replayable         |  | volume/netflow   |
+                     +--------------------+  +------------------+
+
+Telemetry path: backend + workers -> OTel Collector -> Jaeger
+Metrics path: backend -> Prometheus -> Grafana
+```
+
+## Stack
+
+- Streaming: Redpanda (Kafka API + built-in Schema Registry)
+- Contracts: Protobuf + Schema Registry wire format (`magic-byte + schema-id + protobuf`)
+- Tracing: OpenTelemetry SDK + Collector + Jaeger
+- OLTP: Postgres (`events`, `ledger_*`, `processed_events`, `account_balances`, `outbox`)
+- OLAP: ClickHouse raw table + materialized views
+- Frontend: Next.js App Router + TypeScript + Tailwind + Recharts + WebSocket
+
+## Run
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Exposed URLs:
+
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend: [http://localhost:8000](http://localhost:8000)
+- Prometheus: [http://localhost:9090](http://localhost:9090)
+- Grafana: [http://localhost:3001](http://localhost:3001) (`admin/admin`)
+- Jaeger: [http://localhost:16686](http://localhost:16686)
+- Redpanda Console: [http://localhost:8080](http://localhost:8080)
+- Schema Registry endpoint: [http://localhost:8081](http://localhost:8081)
+- ClickHouse HTTP: [http://localhost:8123](http://localhost:8123)
+
+## Key API Endpoints
+
+- `POST /tx/ingest`
+- `GET /tx/recent/raw`
+- `GET /tx/recent/validated`
+- `POST /tx/generator/start?rate_per_sec=8`
+- `POST /tx/generator/stop`
+- `GET /ledger/recent`
+- `GET /ledger/batches`
+- `GET /balances?workspace_id=default`
+- `POST /replay/from-ledger`
+- `GET /analytics/volume-per-asset?minutes=60`
+- `GET /analytics/netflow?account_id=acct_001&minutes=60`
+- `GET /analytics/top-accounts?asset=USDT&minutes=60`
+- `GET /metrics`
+- `WS /ws/stream`
+
+## Schema Evolution Demo (v1 -> v2)
+
+`tx_raw` evolution is backward-compatible:
+
+- v1 fields: `payer_account,payee_account,asset,amount,occurred_at,event_id,correlation_id`
+- v2 adds optional: `payment_memo`, `workspace_id`, `client_id`
+
+What this demo does:
+
+1. On startup, backend registers `tx_raw` v1 and v2 under subject `tx_raw-value` with `BACKWARD` compatibility.
+2. API can emit v1 wire format with `"force_v1": true`.
+3. Consumers deserialize both using current v2 protobuf class; v1 messages remain readable.
+
+Try it:
+
+```bash
+curl -sS -X POST http://localhost:8000/tx/ingest \
+  -H 'content-type: application/json' \
+  -d '{
+    "payer_account":"acct_001",
+    "payee_account":"acct_002",
+    "asset":"USDT",
+    "amount":10,
+    "force_v1":true
+  }'
+
+curl -sS -X POST http://localhost:8000/tx/ingest \
+  -H 'content-type: application/json' \
+  -d '{
+    "payer_account":"acct_003",
+    "payee_account":"acct_004",
+    "asset":"USDT",
+    "amount":15,
+    "payment_memo":"v2 memo",
+    "workspace_id":"team-red",
+    "client_id":"app-42"
+  }'
+```
+
+## Exactly-Once Approximation
+
+Pattern implemented:
+
+- `processed_events(consumer_name,event_id)` for idempotent consumers
+- Outbox table in same transaction as immutable ledger writes
+- Separate outbox publisher with retries + exponential backoff
+- Downstream consumers are idempotent, so duplicate publish is safe
+
+This gives practical exactly-once behavior on top of at-least-once Kafka delivery.
+
+## Ledger Rules
+
+Double-entry convention (documented and implemented):
+
+- `debit` increases balance
+- `credit` decreases balance
+
+Transfer payer -> payee amount X:
+
+- payer: `credit X`
+- payee: `debit X`
+
+## Partitioning Strategy
+
+Implemented keys:
+
+- `tx_raw` / `tx_validated`: key = `payer_account`
+- `ledger_entry_batches`: key = `tx_id`
+
+Trade-offs:
+
+- payer-based key preserves payer ordering and hotspot visibility per account
+- tx_id key fans out independent transactions while keeping each batch ordered
+- multi-tenant touch (`workspace_id` in v2): for stricter tenant isolation you can evolve key to `${workspace_id}:${payer_account}`; this increases locality by tenant but may reduce cross-tenant balancing depending on tenant skew
+
+## Replay Process
+
+`POST /replay/from-ledger`:
+
+1. Truncates `account_balances`
+2. Deterministically recomputes from immutable `ledger_entries`
+3. Returns summary counts
+
+UI has a dedicated `/replay` page to trigger this.
+
+## ClickHouse OLAP Layer
+
+Database: `polyphony`
+
+- Raw table: `ledger_entries_raw` (`MergeTree`)
+- Materialized Views:
+  - `mv_volume_per_asset_1m`
+  - `mv_netflow_per_account_1m`
+  - `mv_top_accounts_5m`
+
+Analytics endpoints query MV target tables for low-latency dashboards.
+
+## Tracing
+
+Implemented end-to-end tracing with OTel:
+
+- API spans around `/tx/ingest`
+- Producer and consumer spans around Kafka publish/consume
+- DB spans for key write/read paths
+- ClickHouse insert/query spans
+- Trace context propagation via Kafka headers:
+  - `traceparent`
+  - `tracestate`
+  - `correlation_id`
+
+Find a transaction trace:
+
+1. Call `/tx/ingest` and capture `correlation_id`
+2. Open Jaeger UI
+3. Search by tag `correlation_id=<value>`
+
+## DLQ and PII Redaction
+
+Each stage has a dedicated DLQ topic:
+
+- `dlq_tx_raw`
+- `dlq_tx_validated`
+- `dlq_ledger_batches`
+- `dlq_clickhouse`
+
+DLQ envelope includes:
+
+- `trace_id`
+- `correlation_id`
+- `schema_id`
+- redacted payload (account/client identifiers masked)
+
+## Frontend Pages
+
+- `/dashboard`: KPIs + live ledger/balance snapshots
+- `/transactions`: ingest form + raw/validated tables + seed generator toggle
+- `/ledger`: ledger entries + grouped batches
+- `/analytics`: ClickHouse chart views
+- `/replay`: projection rebuild controls
+- `/traces`: Jaeger embed/link
+
+## Interview Talking Points
+
+- Contract-first streaming with Schema Registry and backward-compatible event evolution
+- Outbox + idempotency for exactly-once approximation across distributed boundaries
+- Immutable ledger + replayable projections for operational resilience
+- DLQ isolation and structured error envelopes with traceability
+- End-to-end distributed tracing (HTTP -> Kafka -> DB -> OLAP)
+- HTAP-ish split: Postgres for ledger correctness, ClickHouse for real-time analytics
+- Tenant-aware evolution (`workspace_id`) without breaking v1 producers/consumers

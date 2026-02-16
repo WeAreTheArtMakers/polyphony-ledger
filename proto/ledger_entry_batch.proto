@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package polyphony.events;
+
+import "google/protobuf/timestamp.proto";
+
+message LedgerEntry {
+  string tx_id = 1;
+  string account_id = 2;
+  string side = 3;
+  string asset = 4;
+  string amount = 5;
+  string correlation_id = 6;
+  string workspace_id = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+}
+
+message LedgerEntryBatch {
+  string batch_id = 1;
+  string tx_id = 2;
+  string event_id = 3;
+  string correlation_id = 4;
+  string workspace_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+  repeated LedgerEntry entries = 7;
+}
