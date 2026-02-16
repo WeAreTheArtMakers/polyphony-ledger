@@ -1,6 +1,6 @@
-# polyphony-ledger
+# PolyPhonyLedger
 
-Ultra-modern real-time crypto payments ledger demo with Redpanda, Schema Registry + Protobuf evolution, immutable Postgres double-entry ledger, replayable projections, ClickHouse OLAP, OpenTelemetry tracing, Prometheus/Grafana metrics, and a Next.js realtime UI.
+Real-time crypto payments ledger demo with Redpanda, Schema Registry + Protobuf evolution, immutable Postgres double-entry ledger, replayable projections, ClickHouse OLAP, OpenTelemetry tracing, Prometheus/Grafana metrics, and a Next.js realtime UI.
 
 ## Architecture
 
