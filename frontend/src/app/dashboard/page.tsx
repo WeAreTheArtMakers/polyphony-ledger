@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { BalanceRow, LedgerKpis, LedgerRow, WsSnapshot } from '@/lib/types';
 import { useStream } from '@/lib/ws';
 
-export default function DashboardPage(): JSX.Element {
+export default function DashboardPage(): React.JSX.Element {
   const [kpis, setKpis] = useState<LedgerKpis | null>(null);
   const [balances, setBalances] = useState<BalanceRow[]>([]);
   const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>([]);

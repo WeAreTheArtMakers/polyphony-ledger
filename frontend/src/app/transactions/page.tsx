@@ -6,7 +6,7 @@ import TxIngestForm from '@/components/TxIngestForm';
 import TxTables from '@/components/TxTables';
 import { api } from '@/lib/api';
 
-export default function TransactionsPage(): JSX.Element {
+export default function TransactionsPage(): React.JSX.Element {
   const [rawRows, setRawRows] = useState<any[]>([]);
   const [validatedRows, setValidatedRows] = useState<any[]>([]);
   const [generatorRunning, setGeneratorRunning] = useState(false);

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -57,9 +58,14 @@ class KafkaProducer:
             done.set()
 
         self._producer.produce(topic=topic, key=key, value=value, headers=kafka_headers, on_delivery=callback)
-        self._producer.poll(0)
-        if not done.wait(timeout=timeout):
-            self._producer.flush(timeout)
+        deadline = time.monotonic() + timeout
+        while not done.is_set():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self._producer.flush(0)
+                break
+            self._producer.poll(min(0.2, remaining))
+        if not done.is_set():
             raise TimeoutError(f"delivery timeout for topic={topic}")
         if "error" in state:
             raise RuntimeError(str(state["error"]))

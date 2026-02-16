@@ -1,6 +1,6 @@
 'use client';
 
-export default function TraceEmbed(): JSX.Element {
+export default function TraceEmbed(): React.JSX.Element {
   const jaegerUrl = process.env.NEXT_PUBLIC_JAEGER_URL || 'http://localhost:16686';
 
   return (

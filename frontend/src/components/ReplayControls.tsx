@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { api } from '@/lib/api';
 
-export default function ReplayControls(): JSX.Element {
+export default function ReplayControls(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string>('');
 

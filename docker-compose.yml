@@ -35,22 +35,22 @@ services:
     depends_on:
       redpanda:
         condition: service_healthy
-    command:
+    entrypoint:
       - /bin/bash
-      - -c
-      - |
-        set -e
-        for i in {1..20}; do
-          rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1 && break
-          sleep 2
-        done
-        rpk topic create tx_raw --brokers redpanda:9092 -p 6 -r 1 || true
-        rpk topic create tx_validated --brokers redpanda:9092 -p 6 -r 1 || true
-        rpk topic create ledger_entry_batches --brokers redpanda:9092 -p 12 -r 1 || true
-        rpk topic create balance_snapshots --brokers redpanda:9092 -p 6 -r 1 || true
-        rpk topic create dlq_tx_raw --brokers redpanda:9092 -p 3 -r 1 || true
-        rpk topic create dlq_tx_validated --brokers redpanda:9092 -p 3 -r 1 || true
-        rpk topic create dlq_ledger_batches --brokers redpanda:9092 -p 3 -r 1 || true
+      - -lc
+      - >
+        set -euo pipefail;
+        for i in $(seq 1 30); do
+          rpk cluster info --brokers redpanda:9092 >/dev/null 2>&1 && break;
+          sleep 2;
+        done;
+        rpk topic create tx_raw --brokers redpanda:9092 -p 6 -r 1 || true;
+        rpk topic create tx_validated --brokers redpanda:9092 -p 6 -r 1 || true;
+        rpk topic create ledger_entry_batches --brokers redpanda:9092 -p 12 -r 1 || true;
+        rpk topic create balance_snapshots --brokers redpanda:9092 -p 6 -r 1 || true;
+        rpk topic create dlq_tx_raw --brokers redpanda:9092 -p 3 -r 1 || true;
+        rpk topic create dlq_tx_validated --brokers redpanda:9092 -p 3 -r 1 || true;
+        rpk topic create dlq_ledger_batches --brokers redpanda:9092 -p 3 -r 1 || true;
         rpk topic create dlq_clickhouse --brokers redpanda:9092 -p 3 -r 1 || true
 
   redpanda-console:
@@ -84,6 +84,10 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: polyphony
+      CLICKHOUSE_DB: polyphony
     ports:
       - '8123:8123'
       - '9000:9000'
@@ -91,7 +95,7 @@ services:
       - ch-data:/var/lib/clickhouse
       - ./backend/app/clickhouse/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'clickhouse-client --query "SELECT 1"']
+      test: ['CMD-SHELL', 'clickhouse-client --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD" --query "SELECT 1"']
       interval: 5s
       timeout: 5s
       retries: 30
@@ -122,7 +126,7 @@ services:
       redpanda:
         condition: service_healthy
       redpanda-init:
-        condition: service_started
+        condition: service_completed_successfully
       clickhouse:
         condition: service_healthy
       otel-collector:
@@ -139,7 +143,7 @@ services:
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_USERNAME: default
-      CLICKHOUSE_PASSWORD: ''
+      CLICKHOUSE_PASSWORD: polyphony
       CLICKHOUSE_DATABASE: polyphony
       OTEL_ENABLED: 'true'
       OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
@@ -162,6 +166,8 @@ services:
       OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: polyphony
       CLICKHOUSE_DATABASE: polyphony
       ALLOWED_ASSETS: BTC,ETH,USDT
     command: ["python", "-m", "app.kafka.consumer_validator"]
@@ -179,6 +185,8 @@ services:
       OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: polyphony
       CLICKHOUSE_DATABASE: polyphony
       ALLOWED_ASSETS: BTC,ETH,USDT
     command: ["python", "-m", "app.kafka.consumer_ledger_writer"]
@@ -196,6 +204,8 @@ services:
       OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: polyphony
       CLICKHOUSE_DATABASE: polyphony
       ALLOWED_ASSETS: BTC,ETH,USDT
     command: ["python", "-m", "app.kafka.outbox_publisher"]
@@ -213,6 +223,8 @@ services:
       OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: polyphony
       CLICKHOUSE_DATABASE: polyphony
       ALLOWED_ASSETS: BTC,ETH,USDT
     command: ["python", "-m", "app.kafka.consumer_balance_projector"]
@@ -230,6 +242,8 @@ services:
       OTEL_EXPORTER_ENDPOINT: http://otel-collector:4317
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: polyphony
       CLICKHOUSE_DATABASE: polyphony
       ALLOWED_ASSETS: BTC,ETH,USDT
     command: ["python", "-m", "app.clickhouse.writer_consumer"]

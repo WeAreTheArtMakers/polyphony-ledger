@@ -5,7 +5,7 @@ type Props = {
   validatedRows: any[];
 };
 
-function Table({ title, rows }: { title: string; rows: any[] }): JSX.Element {
+function Table({ title, rows }: { title: string; rows: any[] }): React.JSX.Element {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="mb-2 text-lg font-semibold">{title}</h3>
@@ -39,7 +39,7 @@ function Table({ title, rows }: { title: string; rows: any[] }): JSX.Element {
   );
 }
 
-export default function TxTables({ rawRows, validatedRows }: Props): JSX.Element {
+export default function TxTables({ rawRows, validatedRows }: Props): React.JSX.Element {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <Table title="Recent Raw Events" rows={rawRows} />

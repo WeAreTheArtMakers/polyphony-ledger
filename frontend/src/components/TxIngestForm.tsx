@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 
 const assets = ['BTC', 'ETH', 'USDT'];
 
-export default function TxIngestForm(): JSX.Element {
+export default function TxIngestForm(): React.JSX.Element {
   const [payload, setPayload] = useState({
     payer_account: 'acct_001',
     payee_account: 'acct_002',

@@ -8,7 +8,7 @@ type Props = {
   generatorRunning?: boolean;
 };
 
-export default function KpiCards({ kpis, throughputPerMin, generatorRunning }: Props): JSX.Element {
+export default function KpiCards({ kpis, throughputPerMin, generatorRunning }: Props): React.JSX.Element {
   const cards = [
     { label: 'Transactions', value: kpis?.tx_count ?? '-' },
     { label: 'Ledger Entries', value: kpis?.entry_count ?? '-' },

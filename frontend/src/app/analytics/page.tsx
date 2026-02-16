@@ -6,7 +6,7 @@ import AnalyticsCharts from '@/components/AnalyticsCharts';
 import { api } from '@/lib/api';
 import { AnalyticsPoint, TopAccountPoint } from '@/lib/types';
 
-export default function AnalyticsPage(): JSX.Element {
+export default function AnalyticsPage(): React.JSX.Element {
   const [workspaceId, setWorkspaceId] = useState('default');
   const [minutes, setMinutes] = useState(60);
   const [accountId, setAccountId] = useState('acct_001');

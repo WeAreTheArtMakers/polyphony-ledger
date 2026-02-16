@@ -6,7 +6,7 @@ type Props = {
   rows: BalanceRow[];
 };
 
-export default function BalanceTable({ rows }: Props): JSX.Element {
+export default function BalanceTable({ rows }: Props): React.JSX.Element {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="mb-2 text-lg font-semibold">Projected Balances</h3>

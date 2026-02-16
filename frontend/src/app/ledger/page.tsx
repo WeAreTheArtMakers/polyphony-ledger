@@ -6,7 +6,7 @@ import LedgerTable from '@/components/LedgerTable';
 import { api } from '@/lib/api';
 import { BatchRow, LedgerRow } from '@/lib/types';
 
-function BatchPanel({ rows }: { rows: BatchRow[] }): JSX.Element {
+function BatchPanel({ rows }: { rows: BatchRow[] }): React.JSX.Element {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="mb-2 text-lg font-semibold">Batches by tx_id</h3>
@@ -40,7 +40,7 @@ function BatchPanel({ rows }: { rows: BatchRow[] }): JSX.Element {
   );
 }
 
-export default function LedgerPage(): JSX.Element {
+export default function LedgerPage(): React.JSX.Element {
   const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>([]);
   const [batches, setBatches] = useState<BatchRow[]>([]);
 

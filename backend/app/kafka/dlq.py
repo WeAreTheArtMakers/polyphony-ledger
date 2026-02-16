@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import datetime
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from app.kafka.producer import KafkaProducer
 from app.logging import get_logger
@@ -25,6 +28,14 @@ def redact_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if key in redacted and redacted[key]:
             redacted[key] = _mask(str(redacted[key]))
     return redacted
+
+
+def _json_default(value: Any) -> str:
+    if isinstance(value, (Decimal, datetime, UUID)):
+        return str(value)
+    if isinstance(value, (bytes, bytearray)):
+        return base64.b64encode(bytes(value)).decode("ascii")
+    return str(value)
 
 
 class DlqPublisher:
@@ -54,7 +65,7 @@ class DlqPublisher:
             "raw_payload_b64": base64.b64encode(raw_payload or b"").decode("ascii"),
             "ts": now_utc_iso(),
         }
-        body = json.dumps(envelope, ensure_ascii=True).encode("utf-8")
+        body = json.dumps(envelope, ensure_ascii=True, default=_json_default).encode("utf-8")
         self.producer.produce_sync(topic=topic, key=key, value=body)
         DLQ_MESSAGES_TOTAL.labels(stage=self.stage, topic=topic).inc()
         logger.error("dlq_published", extra={"stage": self.stage, "topic": topic, "correlation_id": correlation_id})

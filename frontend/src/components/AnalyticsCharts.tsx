@@ -10,7 +10,7 @@ type Props = {
   topRows: TopAccountPoint[];
 };
 
-export default function AnalyticsCharts({ volumeRows, netflowRows, topRows }: Props): JSX.Element {
+export default function AnalyticsCharts({ volumeRows, netflowRows, topRows }: Props): React.JSX.Element {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

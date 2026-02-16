@@ -12,7 +12,7 @@ const links = [
   { href: '/traces', label: 'Traces' }
 ];
 
-export default function Navbar(): JSX.Element {
+export default function Navbar(): React.JSX.Element {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
