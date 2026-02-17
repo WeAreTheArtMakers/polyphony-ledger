@@ -12,4 +12,4 @@
 
 ## Kapsam
 
-Bu klasor, musteriye acik urun ve teknik tanitim materyalleri icindir.
+Bu klasor, acik urun ve teknik tanitim materyalleri icindir.
