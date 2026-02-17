@@ -1,5 +1,9 @@
 # PolyPhonyLedger
 
+<p align="center">
+  <img src="assets/branding/polyphony-logo-128.png" alt="Polyphony Ledger Logo" width="96" />
+</p>
+
 Real-time crypto payments ledger demo with Redpanda, Schema Registry + Protobuf evolution, immutable Postgres double-entry ledger, replayable projections, ClickHouse OLAP, OpenTelemetry tracing, Prometheus/Grafana metrics, and a Next.js realtime UI.
 
 ## Architecture
@@ -336,14 +340,4 @@ DLQ envelope includes:
 - `/replay`: projection rebuild controls
 - `/traces`: Jaeger embed/link
 
-## Interview Talking Points
-
-- Contract-first streaming with Schema Registry and backward-compatible event evolution
-- Outbox + idempotency for exactly-once approximation across distributed boundaries
-- Immutable ledger + replayable projections for operational resilience
-- DLQ isolation and structured error envelopes with traceability
-- End-to-end distributed tracing (HTTP -> Kafka -> DB -> OLAP)
-- HTAP-ish split: Postgres for ledger correctness, ClickHouse for real-time analytics
-- Tenant-aware evolution (`workspace_id`) without breaking v1 producers/consumers
-
-Made with ❤️ by the WeAreTheArtMakers
+Made with ❤️ WeAreTheArtMakers
