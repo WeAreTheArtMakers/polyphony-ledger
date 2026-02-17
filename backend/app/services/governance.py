@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 
 import asyncpg
 
 from app.config import get_settings
-from app.metrics import WORKSPACE_QUOTA_REJECTIONS_TOTAL, WORKSPACE_USAGE_CONSUMED_TOTAL
+from app.metrics import (
+    WORKSPACE_QUOTA_REJECTIONS_TOTAL,
+    WORKSPACE_USAGE_CONSUMED_TOTAL,
+    WORKSPACE_USAGE_REFUNDED_TOTAL,
+)
 
 
 class QuotaExceededError(RuntimeError):
@@ -36,7 +40,7 @@ class WorkspaceQuota:
 
 
 def current_period_month() -> date:
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     return date(today.year, today.month, 1)
 
 
@@ -130,6 +134,8 @@ async def upsert_workspace_quota(
 
 
 async def consume_workspace_quota(pool: asyncpg.Pool, workspace_id: str, units: int = 1) -> WorkspaceQuota:
+    if units <= 0:
+        raise ValueError(f"units must be positive, got={units}")
     period_month = current_period_month()
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -180,6 +186,70 @@ async def consume_workspace_quota(pool: asyncpg.Pool, workspace_id: str, units: 
             new_total = current + units
 
     WORKSPACE_USAGE_CONSUMED_TOTAL.labels(workspace_id=workspace_id).inc(units)
+    return WorkspaceQuota(
+        workspace_id=workspace_id,
+        monthly_tx_quota=quota,
+        is_active=is_active,
+        tx_ingested_this_month=new_total,
+        period_month=period_month,
+    )
+
+
+async def refund_workspace_quota(
+    pool: asyncpg.Pool,
+    workspace_id: str,
+    units: int = 1,
+    reason: str = "adjustment",
+) -> WorkspaceQuota:
+    if units <= 0:
+        raise ValueError(f"units must be positive, got={units}")
+    period_month = current_period_month()
+    refunded_units = 0
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await _ensure_workspace_records(conn, workspace_id)
+
+            row = await conn.fetchrow(
+                """
+                SELECT q.monthly_tx_quota,
+                       q.is_active,
+                       COALESCE(u.tx_ingested, 0) AS tx_ingested
+                FROM workspace_quotas q
+                JOIN workspace_usage u
+                  ON u.workspace_id = q.workspace_id
+                 AND u.period_month = $2::DATE
+                WHERE q.workspace_id = $1
+                FOR UPDATE
+                """,
+                workspace_id,
+                period_month,
+            )
+            if row is None:
+                raise RuntimeError(f"quota state not found for workspace_id={workspace_id}")
+
+            quota = int(row["monthly_tx_quota"])
+            is_active = bool(row["is_active"])
+            current = int(row["tx_ingested"])
+            refunded_units = min(units, current)
+            new_total = current - refunded_units
+
+            if refunded_units > 0:
+                await conn.execute(
+                    """
+                    UPDATE workspace_usage
+                       SET tx_ingested = $3,
+                           updated_at = NOW()
+                     WHERE workspace_id = $1
+                       AND period_month = $2::DATE
+                    """,
+                    workspace_id,
+                    period_month,
+                    new_total,
+                )
+
+    if refunded_units > 0:
+        WORKSPACE_USAGE_REFUNDED_TOTAL.labels(workspace_id=workspace_id, reason=reason).inc(refunded_units)
     return WorkspaceQuota(
         workspace_id=workspace_id,
         monthly_tx_quota=quota,

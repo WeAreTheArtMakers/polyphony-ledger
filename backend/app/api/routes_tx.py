@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import random
 import uuid
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from app.kafka.producer import KafkaProducer
 from app.kafka.serde import get_serde
 from app.logging import get_logger
 from app.metrics import TX_INGESTED_TOTAL
-from app.services.governance import QuotaExceededError, consume_workspace_quota
+from app.services.governance import QuotaExceededError, consume_workspace_quota, refund_workspace_quota
 from app.tracing import current_trace_id, get_tracer, inject_trace_headers
 
 router = APIRouter(prefix="/tx", tags=["transactions"])
@@ -118,9 +119,6 @@ class TrafficGenerator:
                 await self._task
 
 
-import contextlib
-
-
 _generator = TrafficGenerator()
 
 
@@ -131,7 +129,8 @@ def get_generator() -> TrafficGenerator:
 @router.post("/ingest")
 async def ingest_tx(req: TxIngestRequest, request: Request) -> dict[str, object]:
     settings = get_settings()
-    if req.asset.upper().strip() not in settings.allowed_assets_set:
+    asset = req.asset.upper().strip()
+    if asset not in settings.allowed_assets_set:
         raise HTTPException(status_code=400, detail=f"asset must be one of {sorted(settings.allowed_assets_set)}")
 
     serde = get_serde()
@@ -156,9 +155,11 @@ async def ingest_tx(req: TxIngestRequest, request: Request) -> dict[str, object]
         )
     occurred_at = (req.occurred_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     version = "v1" if req.force_v1 else "v2"
+    quota_consumed = False
 
     try:
         await consume_workspace_quota(pool=get_pg_pool(), workspace_id=workspace_id, units=1)
+        quota_consumed = True
     except QuotaExceededError as exc:
         raise HTTPException(
             status_code=429,
@@ -174,38 +175,72 @@ async def ingest_tx(req: TxIngestRequest, request: Request) -> dict[str, object]
         span.set_attribute("event_id", event_id)
         span.set_attribute("correlation_id", correlation_id)
         span.set_attribute("payer", req.payer_account)
-        span.set_attribute("asset", req.asset.upper().strip())
+        span.set_attribute("workspace_id", workspace_id)
+        span.set_attribute("asset", asset)
         span.set_attribute("amount", str(req.amount))
-
-        record = {
-            "payer_account": req.payer_account,
-            "payee_account": req.payee_account,
-            "asset": req.asset.upper().strip(),
-            "amount": req.amount,
-            "occurred_at": occurred_at,
-            "event_id": event_id,
-            "correlation_id": correlation_id,
-            "payment_memo": req.payment_memo,
-            "workspace_id": workspace_id,
-            "client_id": req.client_id,
-        }
-        wire = serde.serialize_tx_raw(record, force_v1=req.force_v1)
-        headers = inject_trace_headers(
-            {
+        try:
+            record = {
+                "payer_account": req.payer_account,
+                "payee_account": req.payee_account,
+                "asset": asset,
+                "amount": req.amount,
+                "occurred_at": occurred_at,
+                "event_id": event_id,
                 "correlation_id": correlation_id,
-                "trace_id": current_trace_id(),
+                "payment_memo": req.payment_memo,
+                "workspace_id": workspace_id,
+                "client_id": req.client_id,
             }
-        )
+            wire = serde.serialize_tx_raw(record, force_v1=req.force_v1)
+            headers = inject_trace_headers(
+                {
+                    "correlation_id": correlation_id,
+                    "trace_id": current_trace_id(),
+                }
+            )
 
-        producer.produce_sync(
-            topic=settings.tx_raw_topic,
-            key=req.payer_account.lower(),
-            value=wire,
-            headers=headers,
-        )
-        producer.flush()
+            delivery = producer.produce_sync(
+                topic=settings.tx_raw_topic,
+                key=req.payer_account.lower(),
+                value=wire,
+                headers=headers,
+            )
+            span.set_attribute("kafka.topic", delivery.topic)
+            span.set_attribute("kafka.partition", delivery.partition)
+            span.set_attribute("kafka.offset", delivery.offset)
+        except Exception as exc:
+            if quota_consumed:
+                with contextlib.suppress(Exception):
+                    await refund_workspace_quota(
+                        pool=get_pg_pool(),
+                        workspace_id=workspace_id,
+                        units=1,
+                        reason="ingest_publish_failure",
+                    )
+            logger.error(
+                "tx_ingest_publish_failed",
+                extra={
+                    "event_id": event_id,
+                    "correlation_id": correlation_id,
+                    "workspace_id": workspace_id,
+                    "trace_id": current_trace_id(),
+                    "error": str(exc),
+                },
+            )
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "tx_ingest_publish_failed",
+                    "event_id": event_id,
+                    "correlation_id": correlation_id,
+                    "workspace_id": workspace_id,
+                },
+            ) from exc
+        finally:
+            with contextlib.suppress(Exception):
+                producer.flush()
 
-    TX_INGESTED_TOTAL.labels(version=version, asset=req.asset.upper().strip(), workspace_id=workspace_id).inc()
+    TX_INGESTED_TOTAL.labels(version=version, asset=asset, workspace_id=workspace_id).inc()
 
     return {
         "status": "accepted",

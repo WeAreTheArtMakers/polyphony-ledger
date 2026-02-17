@@ -100,6 +100,12 @@ WORKSPACE_USAGE_CONSUMED_TOTAL = Counter(
     ["workspace_id"],
 )
 
+WORKSPACE_USAGE_REFUNDED_TOTAL = Counter(
+    "polyphony_workspace_usage_refunded_total",
+    "Total metered usage units refunded per workspace",
+    ["workspace_id", "reason"],
+)
+
 WORKSPACE_QUOTA_REJECTIONS_TOTAL = Counter(
     "polyphony_workspace_quota_rejections_total",
     "Total quota rejections per workspace",
