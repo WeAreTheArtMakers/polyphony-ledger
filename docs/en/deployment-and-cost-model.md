@@ -22,8 +22,28 @@
 
 ## Cost Planning (Reference Bands)
 
-- Demo tier: ~80 to 220 USD/month
-- Pilot tier: ~250 to 700 USD/month
-- Enterprise baseline: ~800 to 2500+ USD/month
+This public document uses a commercial proposal model instead of exposing raw infrastructure cost lines.
 
-Actual cost depends on throughput, retention windows, and availability targets.
+## Commercial Proposal Structure (Public)
+
+Total proposal consists of:
+
+1. One-time implementation fee
+2. Monthly platform fee
+
+## Pricing Variables
+
+Final pricing is scoped by:
+
+- throughput profile (monthly tx volume and peak TPS)
+- retention policy (logs/metrics/traces retention windows)
+- availability target (uptime and failover level)
+- integration scope (SSO, RBAC, governance, reporting)
+
+## Reference Package Shapes
+
+- Foundation: single-node live environment with baseline observability
+- Growth: controlled pilot topology with advanced alerting and active governance
+- Enterprise: multi-node architecture with high-availability and hardened controls
+
+Raw infrastructure cost details are intentionally handled in internal pricing models after technical discovery.

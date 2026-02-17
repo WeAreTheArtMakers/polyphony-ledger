@@ -12,4 +12,4 @@
 
 ## Audience
 
-This set is designed for customer-facing product and technical reviews.
+This set is designed for product and technical reviews.

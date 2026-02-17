@@ -22,8 +22,28 @@
 
 ## Maliyet Planlama (Referans Bant)
 
-- Demo: ~80 - 220 USD/ay
-- Pilot: ~250 - 700 USD/ay
-- Enterprise baslangic: ~800 - 2500+ USD/ay
+Bu dokumanda altyapi ham maliyetleri yerine ticari teklif modeli kullanilir.
 
-Nihai maliyet; trafik hacmi, retention suresi ve availability hedeflerine gore degisir.
+## Ticari Teklif Modeli (Public)
+
+Toplam teklif 2 ana bolumden olusur:
+
+1. Kurulum Bedeli (tek sefer)
+2. Aylik Platform Bedeli (operasyon + sureklilik)
+
+## Fiyatlandirma Parametreleri
+
+Nihai teklif su parametrelere gore olusturulur:
+
+- trafik hacmi (aylik tx ve pik TPS)
+- retention suresi (log/metric/trace saklama penceresi)
+- availability hedefi (hedef uptime ve failover seviyesi)
+- entegrasyon kapsam seviyesi (SSO, RBAC, governance, raporlama)
+
+## Referans Paket Yapisi
+
+- Foundation: tek node canli demo + temel gozlemlenebilirlik
+- Growth: ayrisik pilot mimari + gelismis alerting + governance aktif kullanim
+- Enterprise: cok node topoloji + yuksek erisilebilirlik + guvenlik sertlestirme
+
+Not: Ham altyapi maliyet detaylari public teklif dokumaninda yer almaz; teknik kesif sonrasinda proje kapsaminda ic teklif modeliyle hesaplanir.
