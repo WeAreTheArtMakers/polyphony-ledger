@@ -94,6 +94,7 @@ Exposed URLs:
 - `GET /analytics/volume-per-asset?minutes=60`
 - `GET /analytics/netflow?account_id=acct_001&minutes=60`
 - `GET /analytics/top-accounts?asset=USDT&minutes=60`
+- `POST /telemetry/frontend`
 - `GET /metrics`
 - `WS /ws/stream`
 
@@ -164,6 +165,30 @@ Run locally:
 python3 scripts/smoke_check.py
 python3 scripts/e2e_pipeline_check.py
 ```
+
+## Frontend Quick Demo
+
+To see the UI and streaming flow quickly:
+
+1. Open [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+2. Open [http://localhost:3000/transactions](http://localhost:3000/transactions)
+3. Click `Start Seed Generator` to produce continuous traffic
+4. Submit a manual transaction from the ingest form
+5. Watch:
+   - dashboard live tables refresh via WebSocket
+   - `/ledger` and `/analytics` update
+   - `/traces` show distributed traces in Jaeger
+
+Frontend telemetry is enabled by default in compose:
+
+- `NEXT_PUBLIC_FE_TELEMETRY_ENABLED=true`
+- `NEXT_PUBLIC_FE_TELEMETRY_SAMPLE_RATE=1`
+
+Captured frontend telemetry:
+
+- Web Vitals (CLS, LCP, INP, FCP, TTFB) via `useReportWebVitals`
+- Browser runtime errors (`window.error`)
+- Promise failures (`unhandledrejection`)
 
 ## Exactly-Once Approximation
 
@@ -241,6 +266,18 @@ Find a transaction trace:
 1. Call `/tx/ingest` and capture `correlation_id`
 2. Open Jaeger UI
 3. Search by tag `correlation_id=<value>`
+
+## Grafana Alerts
+
+Provisioned alert rules are loaded from:
+
+- `infra/grafana/provisioning/alerting/polyphony_alerts.yml`
+
+Preconfigured rules:
+
+- `DLQ Messages Detected` (critical)
+- `Frontend Client Errors Spike` (warning)
+- `Poor Web Vitals Detected` (warning)
 
 ## DLQ and PII Redaction
 

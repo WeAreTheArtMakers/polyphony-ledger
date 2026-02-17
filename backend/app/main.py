@@ -12,6 +12,7 @@ from app.api.routes_analytics import router as analytics_router
 from app.api.routes_balances import router as balances_router
 from app.api.routes_health import router as health_router
 from app.api.routes_ledger import router as ledger_router
+from app.api.routes_observability import router as observability_router
 from app.api.routes_replay import router as replay_router
 from app.api.routes_tx import get_generator, router as tx_router
 from app.config import get_settings
@@ -62,6 +63,7 @@ app.include_router(ledger_router)
 app.include_router(balances_router)
 app.include_router(replay_router)
 app.include_router(analytics_router)
+app.include_router(observability_router)
 
 
 @app.middleware("http")

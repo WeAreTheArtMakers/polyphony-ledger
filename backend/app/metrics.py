@@ -75,6 +75,25 @@ PRODUCER_RETRIES_TOTAL = Counter(
     ["producer", "topic", "reason"],
 )
 
+FRONTEND_WEB_VITALS_TOTAL = Counter(
+    "polyphony_frontend_web_vitals_total",
+    "Total frontend Web Vitals events ingested",
+    ["metric", "rating", "route", "workspace_id"],
+)
+
+FRONTEND_WEB_VITAL_VALUE = Histogram(
+    "polyphony_frontend_web_vital_value",
+    "Frontend Web Vitals observed values",
+    ["metric", "route", "workspace_id"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16),
+)
+
+FRONTEND_CLIENT_ERRORS_TOTAL = Counter(
+    "polyphony_frontend_client_errors_total",
+    "Total frontend client-side errors captured",
+    ["kind", "route", "workspace_id"],
+)
+
 CONSUMER_PROCESSING_SECONDS = Histogram(
     "polyphony_consumer_processing_seconds",
     "Message processing duration in seconds",
