@@ -50,6 +50,31 @@ CONSUMER_ERRORS_TOTAL = Counter(
     ["consumer"],
 )
 
+KAFKA_STARTUP_RETRIES_TOTAL = Counter(
+    "polyphony_kafka_startup_retries_total",
+    "Total Kafka startup readiness retries",
+    ["component", "reason"],
+)
+
+KAFKA_STARTUP_READY_SECONDS = Histogram(
+    "polyphony_kafka_startup_ready_seconds",
+    "Kafka topic readiness duration in seconds",
+    ["component"],
+    buckets=(0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60, 120),
+)
+
+KAFKA_STARTUP_READY_STATE = Gauge(
+    "polyphony_kafka_startup_ready_state",
+    "Kafka topic readiness state (1=ready, 0=not ready)",
+    ["component"],
+)
+
+PRODUCER_RETRIES_TOTAL = Counter(
+    "polyphony_producer_retries_total",
+    "Total producer retries with backoff",
+    ["producer", "topic", "reason"],
+)
+
 CONSUMER_PROCESSING_SECONDS = Histogram(
     "polyphony_consumer_processing_seconds",
     "Message processing duration in seconds",

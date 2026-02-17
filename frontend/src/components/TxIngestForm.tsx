@@ -6,6 +6,17 @@ import { api } from '@/lib/api';
 
 const assets = ['BTC', 'ETH', 'USDT'];
 
+function makeUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const rand = Math.random() * 16 | 0;
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
 export default function TxIngestForm(): React.JSX.Element {
   const [payload, setPayload] = useState({
     payer_account: 'acct_001',
@@ -25,11 +36,25 @@ export default function TxIngestForm(): React.JSX.Element {
     setLoading(true);
     setResult('');
     try {
+      const eventId = makeUuid();
+      const correlationId = makeUuid();
       const res = await api.ingestTx({
         ...payload,
-        amount: Number(payload.amount)
+        amount: Number(payload.amount),
+        event_id: eventId,
+        correlation_id: correlationId
       });
-      setResult(JSON.stringify(res));
+      setResult(
+        JSON.stringify(
+          {
+            event_id: eventId,
+            correlation_id: correlationId,
+            response: res
+          },
+          null,
+          2
+        )
+      );
     } catch (err) {
       setResult(String(err));
     } finally {

@@ -46,6 +46,13 @@ def _normalize_account(account: str) -> str:
     return account.strip().lower()
 
 
+def _canonical_uuid(value: str, field_name: str) -> str:
+    try:
+        return str(uuid.UUID(value))
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(f"{field_name} must be a valid UUID") from exc
+
+
 def normalize_and_validate(raw: dict[str, object], allowed_assets: set[str]) -> NormalizedTx:
     try:
         amount = Decimal(str(raw["amount"]))
@@ -81,6 +88,7 @@ def normalize_and_validate(raw: dict[str, object], allowed_assets: set[str]) -> 
     correlation_id = str(raw.get("correlation_id") or "")
     if not event_id or not correlation_id:
         raise ValidationError("event_id and correlation_id are required")
+    event_id = _canonical_uuid(event_id, "event_id")
 
     tx_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{workspace_id}:{event_id}"))
 

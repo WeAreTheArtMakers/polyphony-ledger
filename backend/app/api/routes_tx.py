@@ -5,6 +5,7 @@ import random
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -28,7 +29,7 @@ class TxIngestRequest(BaseModel):
     asset: str = Field(..., min_length=3)
     amount: Decimal = Field(..., gt=0)
     occurred_at: datetime | None = None
-    event_id: str | None = None
+    event_id: UUID
     correlation_id: str | None = None
     payment_memo: str | None = None
     workspace_id: str | None = None
@@ -134,7 +135,7 @@ async def ingest_tx(req: TxIngestRequest) -> dict[str, object]:
     serde = get_serde()
     producer = KafkaProducer(client_id_suffix="api")
 
-    event_id = req.event_id or str(uuid.uuid4())
+    event_id = str(req.event_id)
     correlation_id = req.correlation_id or str(uuid.uuid4())
     workspace_id = req.workspace_id or "default"
     occurred_at = (req.occurred_at or datetime.now(timezone.utc)).astimezone(timezone.utc)

@@ -97,6 +97,11 @@ Exposed URLs:
 - `GET /metrics`
 - `WS /ws/stream`
 
+`POST /tx/ingest` contract note:
+
+- `event_id` is mandatory and must be a valid UUID.
+- `correlation_id` is optional (auto-generated if omitted).
+
 ## Schema Evolution Demo (v1 -> v2)
 
 `tx_raw` evolution is backward-compatible:
@@ -113,6 +118,8 @@ What this demo does:
 Try it:
 
 ```bash
+EVENT_ID_1="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+CORR_ID_1="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 curl -sS -X POST http://localhost:8000/tx/ingest \
   -H 'content-type: application/json' \
   -d '{
@@ -120,9 +127,13 @@ curl -sS -X POST http://localhost:8000/tx/ingest \
     "payee_account":"acct_002",
     "asset":"USDT",
     "amount":10,
+    "event_id":"'"$EVENT_ID_1"'",
+    "correlation_id":"'"$CORR_ID_1"'",
     "force_v1":true
   }'
 
+EVENT_ID_2="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+CORR_ID_2="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 curl -sS -X POST http://localhost:8000/tx/ingest \
   -H 'content-type: application/json' \
   -d '{
@@ -130,10 +141,28 @@ curl -sS -X POST http://localhost:8000/tx/ingest \
     "payee_account":"acct_004",
     "asset":"USDT",
     "amount":15,
+    "event_id":"'"$EVENT_ID_2"'",
+    "correlation_id":"'"$CORR_ID_2"'",
     "payment_memo":"v2 memo",
     "workspace_id":"team-red",
     "client_id":"app-42"
   }'
+```
+
+## CI Quality Gates
+
+Added mandatory CI gate workflow at `.github/workflows/ci-e2e.yml`.
+
+It runs:
+
+- Smoke checks (`/health`, ingest, ledger, analytics, replay): `python3 scripts/smoke_check.py`
+- End-to-end pipeline checks (`tx_raw -> tx_validated -> outbox -> ledger_entry_batches -> balances -> clickhouse`): `python3 scripts/e2e_pipeline_check.py`
+
+Run locally:
+
+```bash
+python3 scripts/smoke_check.py
+python3 scripts/e2e_pipeline_check.py
 ```
 
 ## Exactly-Once Approximation

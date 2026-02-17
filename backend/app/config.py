@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     kafka_bootstrap_servers: str = "redpanda:9092"
     schema_registry_url: str = "http://redpanda:8081"
     kafka_client_id: str = "polyphony-ledger"
+    kafka_startup_timeout_seconds: float = 90.0
+    producer_max_retries: int = 6
+    producer_retry_base_ms: int = 200
 
     tx_raw_topic: str = "tx_raw"
     tx_validated_topic: str = "tx_validated"
