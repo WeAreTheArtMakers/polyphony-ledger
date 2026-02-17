@@ -62,6 +62,11 @@ Metrics path: backend -> Prometheus -> Grafana
 - OLAP: ClickHouse raw table + materialized views
 - Frontend: Next.js App Router + TypeScript + Tailwind + Recharts + WebSocket
 
+## Sales/Business Docs (TR)
+
+- Full Turkish sales + positioning + roadmap docs are under `/docs`.
+- Start here: `docs/README.md`
+
 ## Run
 
 ```bash
