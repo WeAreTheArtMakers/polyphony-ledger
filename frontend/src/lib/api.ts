@@ -51,7 +51,15 @@ export const api = {
     request<{ running: boolean; rate_per_sec: number }>(`/tx/generator/start?rate_per_sec=${ratePerSec}`, {
       method: 'POST'
     }),
-  generatorStop: () => request<{ running: boolean; rate_per_sec: number }>('/tx/generator/stop', { method: 'POST' })
+  generatorStop: () => request<{ running: boolean; rate_per_sec: number }>('/tx/generator/stop', { method: 'POST' }),
+  governanceMe: () =>
+    request<{ auth_mode: string; subject_id: string; workspace_id: string; role: string }>('/governance/me'),
+  governanceQuota: (workspaceId = 'default') =>
+    request<{ quota: Record<string, unknown> }>(`/governance/quota?workspace_id=${encodeURIComponent(workspaceId)}`),
+  governanceUsage: (workspaceId = 'default', months = 6) =>
+    request<{ workspace_id: string; rows: any[] }>(
+      `/governance/usage?workspace_id=${encodeURIComponent(workspaceId)}&months=${months}`
+    )
 };
 
 export { API_BASE };

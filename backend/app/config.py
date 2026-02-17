@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     balance_snapshot_every_batches: int = 20
 
     allowed_assets: str = Field(default="BTC,ETH,USDT")
+    auth_mode: Literal["off", "header"] = "off"
+    default_workspace_role: Literal["viewer", "operator", "admin", "owner"] = "owner"
+    default_workspace_monthly_tx_quota: int = 1_000_000
 
     @property
     def allowed_assets_set(self) -> set[str]:

@@ -84,6 +84,7 @@ Exposed URLs:
 - Redpanda Console: [http://localhost:8080](http://localhost:8080)
 - Schema Registry endpoint: [http://localhost:8081](http://localhost:8081)
 - ClickHouse HTTP: [http://localhost:8123](http://localhost:8123)
+- Sales Site: [http://localhost:3000/sales](http://localhost:3000/sales)
 
 ## Key API Endpoints
 
@@ -100,6 +101,10 @@ Exposed URLs:
 - `GET /analytics/netflow?account_id=acct_001&minutes=60`
 - `GET /analytics/top-accounts?asset=USDT&minutes=60`
 - `POST /telemetry/frontend`
+- `GET /governance/me`
+- `GET /governance/quota?workspace_id=default`
+- `POST /governance/quota`
+- `GET /governance/usage?workspace_id=default&months=6`
 - `GET /metrics`
 - `WS /ws/stream`
 
@@ -107,6 +112,13 @@ Exposed URLs:
 
 - `event_id` is mandatory and must be a valid UUID.
 - `correlation_id` is optional (auto-generated if omitted).
+
+## Sales Site + EN/TR Language Manager
+
+- Route: `/sales`
+- Default language: English
+- Secondary language: Turkish
+- Runtime language switch is handled by `frontend/public/language-manager.js`.
 
 ## Schema Evolution Demo (v1 -> v2)
 
@@ -194,6 +206,21 @@ Captured frontend telemetry:
 - Web Vitals (CLS, LCP, INP, FCP, TTFB) via `useReportWebVitals`
 - Browser runtime errors (`window.error`)
 - Promise failures (`unhandledrejection`)
+
+## Governance Controls (SSO-ready/RBAC/Quota/Metering)
+
+New runtime controls are included:
+
+- Header-based auth mode (gateway/SSO-ready): `AUTH_MODE=header`
+- Workspace role guard: `viewer | operator | admin | owner`
+- Ingest quota enforcement per workspace
+- Usage metering endpoints under `/governance/*`
+
+Environment defaults in `.env.example`:
+
+- `AUTH_MODE=off`
+- `DEFAULT_WORKSPACE_ROLE=owner`
+- `DEFAULT_WORKSPACE_MONTHLY_TX_QUOTA=1000000`
 
 ## Exactly-Once Approximation
 

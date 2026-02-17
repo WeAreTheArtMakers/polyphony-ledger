@@ -7,15 +7,17 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from app.authz import enforce_roles
 from app.config import get_settings
 from app.db.session import get_pg_pool
 from app.kafka.producer import KafkaProducer
 from app.kafka.serde import get_serde
 from app.logging import get_logger
 from app.metrics import TX_INGESTED_TOTAL
+from app.services.governance import QuotaExceededError, consume_workspace_quota
 from app.tracing import current_trace_id, get_tracer, inject_trace_headers
 
 router = APIRouter(prefix="/tx", tags=["transactions"])
@@ -127,19 +129,46 @@ def get_generator() -> TrafficGenerator:
 
 
 @router.post("/ingest")
-async def ingest_tx(req: TxIngestRequest) -> dict[str, object]:
+async def ingest_tx(req: TxIngestRequest, request: Request) -> dict[str, object]:
     settings = get_settings()
     if req.asset.upper().strip() not in settings.allowed_assets_set:
         raise HTTPException(status_code=400, detail=f"asset must be one of {sorted(settings.allowed_assets_set)}")
 
     serde = get_serde()
     producer = KafkaProducer(client_id_suffix="api")
+    context = enforce_roles(
+        request=request,
+        allowed_roles={"operator", "admin", "owner"},
+        workspace_fallback=req.workspace_id or "default",
+    )
 
     event_id = str(req.event_id)
     correlation_id = req.correlation_id or str(uuid.uuid4())
-    workspace_id = req.workspace_id or "default"
+    workspace_id = req.workspace_id or context.workspace_id or "default"
+    if settings.auth_mode == "header" and req.workspace_id and req.workspace_id != context.workspace_id:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "workspace_scope_violation",
+                "request_workspace_id": req.workspace_id,
+                "header_workspace_id": context.workspace_id,
+            },
+        )
     occurred_at = (req.occurred_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     version = "v1" if req.force_v1 else "v2"
+
+    try:
+        await consume_workspace_quota(pool=get_pg_pool(), workspace_id=workspace_id, units=1)
+    except QuotaExceededError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "workspace_quota_exceeded",
+                "workspace_id": workspace_id,
+                "monthly_tx_quota": exc.quota,
+                "tx_ingested_this_month": exc.current,
+            },
+        ) from exc
 
     with tracer.start_as_current_span("api.tx.ingest") as span:
         span.set_attribute("event_id", event_id)
@@ -221,13 +250,18 @@ async def recent_validated(limit: int = Query(default=30, ge=1, le=200)) -> list
 
 
 @router.post("/generator/start")
-async def generator_start(rate_per_sec: float = Query(default=5.0, ge=0.1, le=100.0)) -> dict[str, object]:
+async def generator_start(
+    request: Request,
+    rate_per_sec: float = Query(default=5.0, ge=0.1, le=100.0),
+) -> dict[str, object]:
+    enforce_roles(request=request, allowed_roles={"admin", "owner"})
     await _generator.start(rate_per_sec)
     return {"status": "started", **_generator.status()}
 
 
 @router.post("/generator/stop")
-async def generator_stop() -> dict[str, object]:
+async def generator_stop(request: Request) -> dict[str, object]:
+    enforce_roles(request=request, allowed_roles={"admin", "owner"})
     await _generator.stop()
     return {"status": "stopped", **_generator.status()}
 

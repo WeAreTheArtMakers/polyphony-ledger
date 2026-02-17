@@ -14,6 +14,11 @@ Bu klasör, projenin satış, demo, teknik karar ve büyüme stratejisi için ha
 - [08 - Online Yayın Stratejisi ve Maliyet Planı](./08-online-yayin-stratejisi-ve-maliyet-plani.md)
 - [09 - Yol Haritası ve Geliştirme Önerileri](./09-yol-haritasi-ve-gelistirme-onerileri.md)
 - [10 - Altyapıyı Satmak İçin Pratik Öneriler](./10-altyapiyi-satmak-icin-pratik-oneriler.md)
+- [11 - Profesyonel Maliyet Modeli](./11-profesyonel-maliyet-modeli.md)
+- [12 - ROI Checklist ve KPI Modeli](./12-roi-checklist-ve-kpi-modeli.md)
+- [13 - 30-60-90 Gunluk Delivery Plani](./13-30-60-90-delivery-plani.md)
+- [14 - Subdomain Yayin Runbook](./14-subdomain-yayin-runbook.md)
+- [15 - SSO/RBAC + Quota + Metering Stratejisi](./15-sso-rbac-quota-usage-metering.md)
 
 ## Bu klasör nasıl kullanılır?
 

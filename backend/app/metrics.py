@@ -94,6 +94,18 @@ FRONTEND_CLIENT_ERRORS_TOTAL = Counter(
     ["kind", "route", "workspace_id"],
 )
 
+WORKSPACE_USAGE_CONSUMED_TOTAL = Counter(
+    "polyphony_workspace_usage_consumed_total",
+    "Total metered usage units consumed per workspace",
+    ["workspace_id"],
+)
+
+WORKSPACE_QUOTA_REJECTIONS_TOTAL = Counter(
+    "polyphony_workspace_quota_rejections_total",
+    "Total quota rejections per workspace",
+    ["workspace_id", "reason"],
+)
+
 CONSUMER_PROCESSING_SECONDS = Histogram(
     "polyphony_consumer_processing_seconds",
     "Message processing duration in seconds",
