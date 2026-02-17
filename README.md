@@ -90,6 +90,27 @@ Exposed URLs:
 - ClickHouse HTTP: [http://localhost:8123](http://localhost:8123)
 - Sales Site: [http://localhost:3000/sales](http://localhost:3000/sales)
 
+## No-VPS Secure Live Demo (Cloudflare Tunnel)
+
+If you cannot rent a VPS yet, you can publish the same Docker Compose stack from your local machine:
+
+```bash
+cp .env.tunnel.example .env.tunnel
+docker compose --env-file .env.tunnel -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+```
+
+This path:
+
+- binds local service ports to `127.0.0.1`
+- publishes public HTTPS routes through Cloudflare Tunnel
+- lets you protect observability routes with Cloudflare Access
+
+Guides:
+
+- Technical notes: `infra/tunnel/README.md`
+- English runbook: `docs/en/no-vps-secure-live-demo.md`
+- Turkce runbook: `docs/tr/vpssiz-guvenli-canli-demo-cloudflare-tunnel.md`
+
 ## Production Overlay (Reverse Proxy + Access Control + OIDC)
 
 1. Copy `.env.prod.example` to `.env.prod` and fill values.
