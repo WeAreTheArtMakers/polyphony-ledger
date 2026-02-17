@@ -9,6 +9,7 @@ from app.db.session import close_pg_pool, init_pg_pool
 from app.kafka.dlq import DlqPublisher
 from app.kafka.producer import KafkaProducer, build_consumer, log_consumer_error
 from app.kafka.serde import get_serde
+from app.kafka.worker_metrics import WorkerAutoscalingMetrics
 from app.logging import get_logger, setup_logging
 from app.metrics import CONSUMER_PROCESSING_SECONDS, TX_VALIDATED_TOTAL
 from app.services.validate_tx import ValidationError, normalize_and_validate
@@ -39,6 +40,7 @@ async def run() -> None:
     )
     producer = KafkaProducer(client_id_suffix="validator")
     dlq = DlqPublisher(stage="validator")
+    autoscaling = WorkerAutoscalingMetrics(worker_name="validator")
 
     running = True
 
@@ -125,6 +127,12 @@ async def run() -> None:
                             asset=normalized.asset,
                             workspace_id=normalized.workspace_id,
                         ).inc()
+                        autoscaling.observe_processed(
+                            consumer=consumer,
+                            topic=msg.topic(),
+                            partition=msg.partition(),
+                            offset=msg.offset(),
+                        )
                         consumer.commit(msg)
 
             except (ValidationError, ValueError) as exc:

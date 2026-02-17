@@ -1,0 +1,29 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+  encode gzip
+  reverse_proxy frontend:3000
+}
+
+{$API_DOMAIN} {
+  encode gzip
+  reverse_proxy backend:8000
+}
+
+{$OBS_DOMAIN} {
+  encode gzip
+  basicauth {
+    {$OBS_AUTH_USER} {$OBS_AUTH_HASH}
+  }
+  reverse_proxy grafana:3000
+}
+
+{$TRACE_DOMAIN} {
+  encode gzip
+  basicauth {
+    {$TRACE_AUTH_USER} {$TRACE_AUTH_HASH}
+  }
+  reverse_proxy jaeger:16686
+}

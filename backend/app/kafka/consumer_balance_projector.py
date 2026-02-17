@@ -9,6 +9,7 @@ from app.db.session import close_pg_pool, init_pg_pool
 from app.kafka.dlq import DlqPublisher
 from app.kafka.producer import KafkaProducer, build_consumer, log_consumer_error
 from app.kafka.serde import get_serde
+from app.kafka.worker_metrics import WorkerAutoscalingMetrics
 from app.logging import get_logger, setup_logging
 from app.metrics import BALANCE_UPSERTS_TOTAL, CONSUMER_PROCESSING_SECONDS
 from app.services.balances import signed_amount
@@ -34,6 +35,7 @@ async def run() -> None:
     )
     producer = KafkaProducer(client_id_suffix="balance-projector")
     dlq = DlqPublisher(stage="balance-projector")
+    autoscaling = WorkerAutoscalingMetrics(worker_name="balance-projector")
 
     running = True
     processed_batches = 0
@@ -145,6 +147,12 @@ async def run() -> None:
                                 headers=headers,
                             )
 
+                        autoscaling.observe_processed(
+                            consumer=consumer,
+                            topic=msg.topic(),
+                            partition=msg.partition(),
+                            offset=msg.offset(),
+                        )
                         consumer.commit(msg)
 
             except Exception as exc:

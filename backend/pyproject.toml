@@ -16,6 +16,7 @@ dependencies = [
   "python-dotenv==1.1.1",
   "orjson==3.11.2",
   "httpx==0.28.1",
+  "PyJWT[crypto]==2.10.1",
   "opentelemetry-api==1.37.0",
   "opentelemetry-sdk==1.37.0",
   "opentelemetry-exporter-otlp-proto-grpc==1.37.0",

@@ -1,6 +1,6 @@
 # Polyphony Ledger Documentation
 
-Customer-facing documentation is organized by language.
+Public documentation is organized by language.
 
 ## Language Folders
 

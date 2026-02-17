@@ -61,9 +61,18 @@ class Settings(BaseSettings):
     balance_snapshot_every_batches: int = 20
 
     allowed_assets: str = Field(default="BTC,ETH,USDT")
-    auth_mode: Literal["off", "header"] = "off"
+    auth_mode: Literal["off", "header", "oidc"] = "off"
     default_workspace_role: Literal["viewer", "operator", "admin", "owner"] = "owner"
     default_workspace_monthly_tx_quota: int = 1_000_000
+    oidc_issuer_url: str = ""
+    oidc_audience: str = ""
+    oidc_jwks_url: str = ""
+    oidc_role_claim: str = "realm_access.roles"
+    oidc_workspace_claim: str = "workspace_id"
+    oidc_subject_claim: str = "sub"
+    oidc_algorithms: str = "RS256,ES256"
+    autoscale_target_lag: int = 200
+    autoscale_target_throughput_per_minute: float = 120.0
 
     @property
     def allowed_assets_set(self) -> set[str]:

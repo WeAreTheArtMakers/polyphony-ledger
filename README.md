@@ -90,6 +90,28 @@ Exposed URLs:
 - ClickHouse HTTP: [http://localhost:8123](http://localhost:8123)
 - Sales Site: [http://localhost:3000/sales](http://localhost:3000/sales)
 
+## Production Overlay (Reverse Proxy + Access Control + OIDC)
+
+1. Copy `.env.prod.example` to `.env.prod` and fill values.
+2. Generate Caddy password hashes for `OBS_AUTH_HASH` / `TRACE_AUTH_HASH`.
+3. Run:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Production entrypoints:
+
+- `https://apppoly.wearetheartmakers.com` -> frontend
+- `https://apipoly.wearetheartmakers.com` -> backend
+- `https://obspoly.wearetheartmakers.com` -> Grafana (basic auth enforced)
+- `https://tracepoly.wearetheartmakers.com` -> Jaeger (basic auth enforced)
+
+Secrets workflow:
+
+- SOPS path and helpers: `infra/secrets/sops/*`, `scripts/prod/decrypt_env_from_sops.sh`
+- Vault path and helpers: `infra/secrets/vault/*`, `scripts/prod/render_env_from_vault.sh`
+
 ## Key API Endpoints
 
 - `POST /tx/ingest`
@@ -211,11 +233,12 @@ Captured frontend telemetry:
 - Browser runtime errors (`window.error`)
 - Promise failures (`unhandledrejection`)
 
-## Governance Controls (SSO-ready/RBAC/Quota/Metering)
+## Governance Controls (OIDC SSO/RBAC/Quota/Metering)
 
-New runtime controls are included:
+Runtime controls are included:
 
-- Header-based auth mode (gateway/SSO-ready): `AUTH_MODE=header`
+- OIDC auth mode (Auth0/Keycloak compatible): `AUTH_MODE=oidc`
+- Legacy gateway header mode: `AUTH_MODE=header`
 - Workspace role guard: `viewer | operator | admin | owner`
 - Ingest quota enforcement per workspace
 - Usage metering endpoints under `/governance/*`
@@ -225,6 +248,9 @@ Environment defaults in `.env.example`:
 - `AUTH_MODE=off`
 - `DEFAULT_WORKSPACE_ROLE=owner`
 - `DEFAULT_WORKSPACE_MONTHLY_TX_QUOTA=1000000`
+- `OIDC_ISSUER_URL`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`
+- `OIDC_ROLE_CLAIM=realm_access.roles`
+- `OIDC_WORKSPACE_CLAIM=workspace_id`
 
 ## Exactly-Once Approximation
 
@@ -314,6 +340,23 @@ Preconfigured rules:
 - `DLQ Messages Detected` (critical)
 - `Frontend Client Errors Spike` (warning)
 - `Poor Web Vitals Detected` (warning)
+- `Worker Scale-Up Signal` (warning; lag above target + throughput below target)
+
+## Worker Autoscaling Signals
+
+Prometheus metrics now expose autoscaling inputs per worker:
+
+- `polyphony_worker_messages_processed_total{worker,topic}`
+- `polyphony_worker_throughput_per_minute{worker,topic}`
+- `polyphony_worker_consumer_lag{worker,topic,partition}`
+- `polyphony_worker_autoscale_target{worker,metric}`
+
+Threshold env vars:
+
+- `AUTOSCALE_TARGET_LAG` (default `200`)
+- `AUTOSCALE_TARGET_THROUGHPUT_PER_MINUTE` (default `120`)
+
+These metrics let HPA/KEDA or external autoscalers scale worker replicas using lag + throughput together.
 
 ## DLQ and PII Redaction
 

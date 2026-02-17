@@ -9,6 +9,7 @@ from app.db.session import close_pg_pool, init_pg_pool
 from app.kafka.dlq import DlqPublisher
 from app.kafka.producer import build_consumer, log_consumer_error
 from app.kafka.serde import get_serde
+from app.kafka.worker_metrics import WorkerAutoscalingMetrics
 from app.logging import get_logger, setup_logging
 from app.metrics import CONSUMER_PROCESSING_SECONDS, LEDGER_ENTRIES_WRITTEN_TOTAL
 from app.services.ledger import build_batch_payload, build_double_entries
@@ -32,6 +33,7 @@ async def run() -> None:
         client_suffix="ledger-writer",
     )
     dlq = DlqPublisher(stage="ledger-writer")
+    autoscaling = WorkerAutoscalingMetrics(worker_name="ledger-writer")
 
     running = True
 
@@ -169,6 +171,12 @@ async def run() -> None:
                                 asset=entry["asset"],
                                 workspace_id=entry["workspace_id"],
                             ).inc()
+                        autoscaling.observe_processed(
+                            consumer=consumer,
+                            topic=msg.topic(),
+                            partition=msg.partition(),
+                            offset=msg.offset(),
+                        )
                         consumer.commit(msg)
 
             except Exception as exc:

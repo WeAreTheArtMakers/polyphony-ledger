@@ -20,7 +20,7 @@ class QuotaUpdateRequest(BaseModel):
 def _resolve_target_workspace(context: AuthContext, requested_workspace_id: str) -> str:
     target_workspace = requested_workspace_id.strip() or context.workspace_id
     settings = get_settings()
-    if settings.auth_mode == "header" and target_workspace != context.workspace_id:
+    if settings.auth_mode in {"header", "oidc"} and target_workspace != context.workspace_id:
         raise HTTPException(
             status_code=403,
             detail={
@@ -46,7 +46,7 @@ async def governance_me(request: Request) -> dict[str, str]:
 @router.get("/quota")
 async def governance_quota(
     request: Request,
-    workspace_id: str = Query(default="default", min_length=1, max_length=64),
+    workspace_id: str = Query(default="", max_length=64),
 ) -> dict[str, object]:
     context = enforce_roles(request=request, allowed_roles={"viewer", "operator", "admin", "owner"})
     target_workspace = _resolve_target_workspace(context=context, requested_workspace_id=workspace_id)
@@ -70,7 +70,7 @@ async def governance_quota_update(request: Request, payload: QuotaUpdateRequest)
 @router.get("/usage")
 async def governance_usage(
     request: Request,
-    workspace_id: str = Query(default="default", min_length=1, max_length=64),
+    workspace_id: str = Query(default="", max_length=64),
     months: int = Query(default=6, ge=1, le=24),
 ) -> dict[str, object]:
     context = enforce_roles(request=request, allowed_roles={"viewer", "operator", "admin", "owner"})

@@ -10,6 +10,7 @@ from app.db.session import close_pg_pool, init_pg_pool
 from app.kafka.dlq import DlqPublisher
 from app.kafka.producer import build_consumer, log_consumer_error
 from app.kafka.serde import get_serde
+from app.kafka.worker_metrics import WorkerAutoscalingMetrics
 from app.logging import get_logger, setup_logging
 from app.metrics import CLICKHOUSE_INSERT_SECONDS, CONSUMER_PROCESSING_SECONDS
 from app.tracing import extract_context_from_kafka_headers, get_tracer, setup_tracing
@@ -32,6 +33,7 @@ async def run() -> None:
         client_suffix="clickhouse-writer",
     )
     dlq = DlqPublisher(stage="clickhouse-writer")
+    autoscaling = WorkerAutoscalingMetrics(worker_name="clickhouse-writer")
     running = True
 
     def stop_handler(*_: object) -> None:
@@ -123,6 +125,12 @@ async def run() -> None:
                                     ],
                                 )
 
+                        autoscaling.observe_processed(
+                            consumer=consumer,
+                            topic=msg.topic(),
+                            partition=msg.partition(),
+                            offset=msg.offset(),
+                        )
                         consumer.commit(msg)
             except Exception as exc:
                 log_consumer_error("clickhouse-writer", exc)

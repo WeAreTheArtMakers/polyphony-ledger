@@ -54,11 +54,15 @@ export const api = {
   generatorStop: () => request<{ running: boolean; rate_per_sec: number }>('/tx/generator/stop', { method: 'POST' }),
   governanceMe: () =>
     request<{ auth_mode: string; subject_id: string; workspace_id: string; role: string }>('/governance/me'),
-  governanceQuota: (workspaceId = 'default') =>
-    request<{ quota: Record<string, unknown> }>(`/governance/quota?workspace_id=${encodeURIComponent(workspaceId)}`),
-  governanceUsage: (workspaceId = 'default', months = 6) =>
+  governanceQuota: (workspaceId?: string) =>
+    request<{ quota: Record<string, unknown> }>(
+      workspaceId ? `/governance/quota?workspace_id=${encodeURIComponent(workspaceId)}` : '/governance/quota'
+    ),
+  governanceUsage: (workspaceId: string | undefined, months = 6) =>
     request<{ workspace_id: string; rows: any[] }>(
-      `/governance/usage?workspace_id=${encodeURIComponent(workspaceId)}&months=${months}`
+      workspaceId
+        ? `/governance/usage?workspace_id=${encodeURIComponent(workspaceId)}&months=${months}`
+        : `/governance/usage?months=${months}`
     )
 };
 

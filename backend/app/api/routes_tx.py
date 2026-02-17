@@ -144,7 +144,7 @@ async def ingest_tx(req: TxIngestRequest, request: Request) -> dict[str, object]
     event_id = str(req.event_id)
     correlation_id = req.correlation_id or str(uuid.uuid4())
     workspace_id = req.workspace_id or context.workspace_id or "default"
-    if settings.auth_mode == "header" and req.workspace_id and req.workspace_id != context.workspace_id:
+    if settings.auth_mode in {"header", "oidc"} and req.workspace_id and req.workspace_id != context.workspace_id:
         raise HTTPException(
             status_code=403,
             detail={

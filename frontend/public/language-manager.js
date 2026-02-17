@@ -32,9 +32,9 @@
       'pillars.p3.title': 'Audit-Ready Observability',
       'pillars.p3.desc': 'End-to-end traces, DLQ isolation, structured logs, metrics and alerting out of the box.',
       'pillars.p4.title': 'Enterprise Controls',
-      'pillars.p4.desc': 'SSO-ready header auth, RBAC guards, tenant quota controls and usage metering API.',
+      'pillars.p4.desc': 'OIDC SSO, RBAC guards, tenant quota controls and usage metering API.',
 
-      'roi.title': 'ROI Checklist for Client Meetings',
+      'roi.title': 'ROI Readiness Checklist',
       'roi.c1': 'Do we know our current reconciliation lead time?',
       'roi.c2': 'Do we have measured MTTR for payment incidents?',
       'roi.c3': 'How many FTE-hours are spent preparing audit evidence?',
@@ -84,9 +84,9 @@
       'pillars.p3.title': 'Denetime Hazir Gozlemlenebilirlik',
       'pillars.p3.desc': 'Uctan uca trace, DLQ izolasyonu, structured log, metrik ve alert paket olarak gelir.',
       'pillars.p4.title': 'Kurumsal Kontroller',
-      'pillars.p4.desc': 'SSO-ready header auth, RBAC guardlari, tenant quota ve usage metering API.',
+      'pillars.p4.desc': 'OIDC tabanli SSO, RBAC guardlari, tenant quota ve usage metering API.',
 
-      'roi.title': 'Musteri Gorusmesi ROI Checklist',
+      'roi.title': 'ROI Hazirlik Checklist',
       'roi.c1': 'Mevcut mutabakat suremizi net olcuyor muyuz?',
       'roi.c2': 'Odeme incidentlari icin olculmus MTTR var mi?',
       'roi.c3': 'Audit kaniti icin kac FTE-saat harcaniyor?',

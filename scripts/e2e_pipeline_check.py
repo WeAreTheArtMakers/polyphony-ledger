@@ -97,6 +97,23 @@ def main() -> int:
         "tx_raw": _topic_high_watermark_sum("tx_raw"),
         "tx_validated": _topic_high_watermark_sum("tx_validated"),
         "ledger_entry_batches": _topic_high_watermark_sum("ledger_entry_batches"),
+        "dlq_tx_raw": _topic_high_watermark_sum("dlq_tx_raw"),
+        "dlq_tx_validated": _topic_high_watermark_sum("dlq_tx_validated"),
+        "dlq_ledger_batches": _topic_high_watermark_sum("dlq_ledger_batches"),
+        "dlq_clickhouse": _topic_high_watermark_sum("dlq_clickhouse"),
+    }
+
+    processed_before = {
+        "validator": int(_psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'validator';")),
+        "ledger-writer": int(
+            _psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'ledger-writer';")
+        ),
+        "balance-projector": int(
+            _psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'balance-projector';")
+        ),
+        "clickhouse-writer": int(
+            _psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'clickhouse-writer';")
+        ),
     }
 
     event_id = str(uuid.uuid4())
@@ -168,6 +185,27 @@ def main() -> int:
     )
 
     _wait_until(
+        "validator processed_events increment",
+        lambda: int(_psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'validator';"))
+        > processed_before["validator"],
+    )
+    _wait_until(
+        "ledger-writer processed_events increment",
+        lambda: int(_psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'ledger-writer';"))
+        > processed_before["ledger-writer"],
+    )
+    _wait_until(
+        "balance-projector processed_events increment",
+        lambda: int(_psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'balance-projector';"))
+        > processed_before["balance-projector"],
+    )
+    _wait_until(
+        "clickhouse-writer processed_events increment",
+        lambda: int(_psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'clickhouse-writer';"))
+        > processed_before["clickhouse-writer"],
+    )
+
+    _wait_until(
         "analytics rows available",
         lambda: len(_request_json("GET", f"/analytics/volume-per-asset?minutes=60&workspace_id={workspace_id}")["rows"]) > 0,
     )
@@ -175,6 +213,12 @@ def main() -> int:
     batches = _request_json("GET", "/ledger/batches?limit=200")
     if not any(row.get("tx_id") == tx_id for row in batches):
         raise RuntimeError(f"Expected tx_id {tx_id} in /ledger/batches response")
+
+    for dlq_topic in ("dlq_tx_raw", "dlq_tx_validated", "dlq_ledger_batches", "dlq_clickhouse"):
+        before = topic_before[dlq_topic]
+        after = _topic_high_watermark_sum(dlq_topic)
+        if after != before:
+            raise RuntimeError(f"DLQ topic {dlq_topic} advanced during e2e run (before={before}, after={after})")
 
     print(
         json.dumps(
@@ -188,6 +232,23 @@ def main() -> int:
                     "tx_raw": _topic_high_watermark_sum("tx_raw"),
                     "tx_validated": _topic_high_watermark_sum("tx_validated"),
                     "ledger_entry_batches": _topic_high_watermark_sum("ledger_entry_batches"),
+                    "dlq_tx_raw": _topic_high_watermark_sum("dlq_tx_raw"),
+                    "dlq_tx_validated": _topic_high_watermark_sum("dlq_tx_validated"),
+                    "dlq_ledger_batches": _topic_high_watermark_sum("dlq_ledger_batches"),
+                    "dlq_clickhouse": _topic_high_watermark_sum("dlq_clickhouse"),
+                },
+                "processed_before": processed_before,
+                "processed_after": {
+                    "validator": int(_psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'validator';")),
+                    "ledger-writer": int(
+                        _psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'ledger-writer';")
+                    ),
+                    "balance-projector": int(
+                        _psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'balance-projector';")
+                    ),
+                    "clickhouse-writer": int(
+                        _psql_scalar("SELECT count(*) FROM processed_events WHERE consumer_name = 'clickhouse-writer';")
+                    ),
                 },
             }
         )

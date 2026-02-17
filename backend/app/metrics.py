@@ -125,6 +125,30 @@ CLICKHOUSE_INSERT_SECONDS = Histogram(
     buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
 )
 
+WORKER_MESSAGES_PROCESSED_TOTAL = Counter(
+    "polyphony_worker_messages_processed_total",
+    "Total successfully processed messages per worker",
+    ["worker", "topic"],
+)
+
+WORKER_THROUGHPUT_PER_MINUTE = Gauge(
+    "polyphony_worker_throughput_per_minute",
+    "Approximate processed messages per minute per worker/topic",
+    ["worker", "topic"],
+)
+
+WORKER_CONSUMER_LAG = Gauge(
+    "polyphony_worker_consumer_lag",
+    "Approximate consumer lag by worker/topic/partition",
+    ["worker", "topic", "partition"],
+)
+
+WORKER_AUTOSCALE_TARGET = Gauge(
+    "polyphony_worker_autoscale_target",
+    "Autoscaling target thresholds by worker (lag, throughput_per_minute)",
+    ["worker", "metric"],
+)
+
 INFLIGHT_WS_CONNECTIONS = Gauge(
     "polyphony_ws_connections",
     "Current websocket client connections",

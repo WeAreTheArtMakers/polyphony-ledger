@@ -1,0 +1,161 @@
+services:
+  backend:
+    env_file:
+      - .env.prod
+    environment:
+      ENVIRONMENT: prod
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      AUTH_MODE: ${AUTH_MODE}
+      DEFAULT_WORKSPACE_ROLE: ${DEFAULT_WORKSPACE_ROLE}
+      DEFAULT_WORKSPACE_MONTHLY_TX_QUOTA: ${DEFAULT_WORKSPACE_MONTHLY_TX_QUOTA}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM}
+      OIDC_WORKSPACE_CLAIM: ${OIDC_WORKSPACE_CLAIM}
+      OIDC_SUBJECT_CLAIM: ${OIDC_SUBJECT_CLAIM}
+      OIDC_ALGORITHMS: ${OIDC_ALGORITHMS}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    ports: []
+    expose:
+      - "8000"
+
+  validator-worker:
+    env_file:
+      - .env.prod
+    environment:
+      AUTH_MODE: ${AUTH_MODE}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM}
+      OIDC_WORKSPACE_CLAIM: ${OIDC_WORKSPACE_CLAIM}
+      OIDC_SUBJECT_CLAIM: ${OIDC_SUBJECT_CLAIM}
+      OIDC_ALGORITHMS: ${OIDC_ALGORITHMS}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+
+  ledger-writer-worker:
+    env_file:
+      - .env.prod
+    environment:
+      AUTH_MODE: ${AUTH_MODE}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM}
+      OIDC_WORKSPACE_CLAIM: ${OIDC_WORKSPACE_CLAIM}
+      OIDC_SUBJECT_CLAIM: ${OIDC_SUBJECT_CLAIM}
+      OIDC_ALGORITHMS: ${OIDC_ALGORITHMS}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+
+  outbox-publisher:
+    env_file:
+      - .env.prod
+    environment:
+      AUTH_MODE: ${AUTH_MODE}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM}
+      OIDC_WORKSPACE_CLAIM: ${OIDC_WORKSPACE_CLAIM}
+      OIDC_SUBJECT_CLAIM: ${OIDC_SUBJECT_CLAIM}
+      OIDC_ALGORITHMS: ${OIDC_ALGORITHMS}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+
+  balance-projector-worker:
+    env_file:
+      - .env.prod
+    environment:
+      AUTH_MODE: ${AUTH_MODE}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM}
+      OIDC_WORKSPACE_CLAIM: ${OIDC_WORKSPACE_CLAIM}
+      OIDC_SUBJECT_CLAIM: ${OIDC_SUBJECT_CLAIM}
+      OIDC_ALGORITHMS: ${OIDC_ALGORITHMS}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+
+  clickhouse-writer-worker:
+    env_file:
+      - .env.prod
+    environment:
+      AUTH_MODE: ${AUTH_MODE}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OIDC_ROLE_CLAIM: ${OIDC_ROLE_CLAIM}
+      OIDC_WORKSPACE_CLAIM: ${OIDC_WORKSPACE_CLAIM}
+      OIDC_SUBJECT_CLAIM: ${OIDC_SUBJECT_CLAIM}
+      OIDC_ALGORITHMS: ${OIDC_ALGORITHMS}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+
+  frontend:
+    env_file:
+      - .env.prod
+    environment:
+      NEXT_PUBLIC_API_BASE: https://${API_DOMAIN}
+      NEXT_PUBLIC_WS_URL: wss://${API_DOMAIN}/ws/stream
+      NEXT_PUBLIC_JAEGER_URL: https://${TRACE_DOMAIN}
+      NEXT_PUBLIC_HOME_ROUTE: /sales
+    ports: []
+    expose:
+      - "3000"
+
+  grafana:
+    env_file:
+      - .env.prod
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: https://${OBS_DOMAIN}
+    ports: []
+    expose:
+      - "3000"
+
+  jaeger:
+    ports: []
+    expose:
+      - "16686"
+
+  redpanda-console:
+    ports: []
+    expose:
+      - "8080"
+
+  postgres:
+    ports: []
+
+  clickhouse:
+    env_file:
+      - .env.prod
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    ports: []
+
+  prometheus:
+    ports: []
+    expose:
+      - "9090"
+
+  caddy:
+    image: caddy:2.9.1-alpine
+    depends_on:
+      - frontend
+      - backend
+      - grafana
+      - jaeger
+    env_file:
+      - .env.prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

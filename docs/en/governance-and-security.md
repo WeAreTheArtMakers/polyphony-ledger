@@ -5,7 +5,7 @@
 - role-based guards (`viewer`, `operator`, `admin`, `owner`)
 - tenant quota controls for ingest operations
 - usage metering endpoints per workspace
-- SSO-ready header auth mode for gateway integration
+- OIDC token validation mode (Auth0/Keycloak compatible) with legacy header mode fallback
 
 ## Security and Operations Baseline
 

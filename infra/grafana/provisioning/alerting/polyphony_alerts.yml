@@ -179,3 +179,61 @@ groups:
               maxDataPoints: 43200
               refId: B
               type: threshold
+
+      - uid: poly-worker-scale-signal
+        title: Worker Scale-Up Signal
+        condition: B
+        for: 3m
+        noDataState: NoData
+        execErrState: Alerting
+        annotations:
+          summary: Worker lag is above target and throughput is below target.
+          runbook_url: http://localhost:3001/d/poly-kafka-pipeline/polyphony-kafka-pipeline
+        labels:
+          severity: warning
+          source: workers
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: (max by (worker) (polyphony_worker_consumer_lag) > on(worker) group_left polyphony_worker_autoscale_target{metric="lag"}) and ((sum by (worker) (rate(polyphony_worker_messages_processed_total[5m])) * 60) < on(worker) group_left polyphony_worker_autoscale_target{metric="throughput_per_minute"})
+              instant: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
